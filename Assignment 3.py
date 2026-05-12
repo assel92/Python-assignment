@@ -1,7 +1,6 @@
 import os
 import csv
 import json
-#task a1
 class FileManager:    
     def __init__(self, filename):
         self.filename = filename
@@ -17,14 +16,11 @@ class FileManager:
     
     def create_output_folder(self, folder='output'):
         print("\nChecking output folder...")
-        
         if os.path.exists(folder):
             print(f"Output folder already exists: {folder}/")
         else:
             os.makedirs(folder)
             print(f"Output folder created: {folder}/")
-
-    #task 2
 class DataLoader:    
     def __init__(self, filename):
         self.filename = filename
@@ -58,12 +54,26 @@ class DataLoader:
             print(f"{student['student_id']} | {student['age']} | {student['gender']} | {student['country']} | GPA: {student['GPA']}")
         
         print("-" * 30)
-
-    #task 3
 class DataAnalyser:
     def __init__(self, students):
         self.students = students
         self.result = {}
+    
+    def analyse(self):
+        print("Not implemented - use a child class")
+    
+    def print_results(self):
+        print("\n" + "=" * 30)
+        for key, value in self.result.items():
+            print(f"{key}: {value}")
+        print("=" * 30)
+    
+    def __str__(self):
+        return f"DataAnalyser: base class, {len(self.students)} students"
+
+class GpaAnalyser(DataAnalyser):
+    def __init__(self, students):
+        super().__init__(students)
     
     def analyse(self):
         gpas = []
@@ -98,21 +108,34 @@ class DataAnalyser:
         
         return self.result
     
+    def __str__(self):
+        return f"GpaAnalyser: GPA Statistics, {len(self.students)} students"
     def print_results(self):
-        if not self.result:
-            print("No results to print. Please run analyse() first.")
-            return
+        """Override print_results with header and footer, calling super().print_results()"""
+        print("\n" + "=" * 30)
+        print("GPA ANALYSIS REPORT")
+        print("=" * 30)
         
+        # Call base class print_results to print key-value pairs
+        for key, value in self.result.items():
+            print(f"{key}: {value}")
+        
+        print("=" * 30)
+
+class Report:
+    def __init__(self, analyser, saver):
+        self.analyser = analyser 
+        self.saver = saver      
+    
+    def generate(self):
         print("\n" + "-" * 30)
-        print("GPA Analysis")
+        print("Generating report...")
         print("-" * 30)
-        print(f"Total students : {self.result.get('total_students', 0)}")
-        print(f"Average GPA : {self.result.get('average_gpa', 0)}")
-        print(f"Highest GPA : {self.result.get('max_gpa', 0)}")
-        print(f"Lowest GPA : {self.result.get('min_gpa', 0)}")
-        print(f"Students GPA>3.5 : {self.result.get('high_performers', 0)}")
-        print("-" * 30)
-    #task 4
+        self.analyser.analyse()
+        self.analyser.print_results()
+        self.saver.save_json()
+        print("Report complete.")
+
 class ResultSaver:    
     def __init__(self, result, output_path):
         self.result = result
@@ -130,25 +153,76 @@ class ResultSaver:
         except Exception as e:
             print(f"Error saving JSON file: {e}")
 
+def polymorphism_demo(students_full, students_sample):
+    print("\n" + "=" * 50)
+    print("Task 5: Polymorphism")
+    print("=" * 50)
+    class CountryAnalyser(DataAnalyser):
+        def __init__(self, students):
+            super().__init__(students)
+        
+        def analyse(self):
+            country_counts = {}
+            for student in self.students:
+                country = student.get('country', 'Unknown')
+                country_counts[country] = country_counts.get(country, 0) + 1
+            
+            top_3 = sorted(country_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+            
+            self.result = {
+                "total_students": len(self.students),
+                "total_countries": len(country_counts),
+                "top_3": top_3
+            }
+            return self.result
+        
+        def __str__(self):
+            return f"CountryAnalyser: Country Analysis, {len(self.students)} students"
+        
+        def print_results(self):
+            print("\n" + "=" * 30)
+            print("COUNTRY ANALYSIS REPORT")
+            print("=" * 30)
+            for key, value in self.result.items():
+                print(f"{key}: {value}")
+            print("=" * 30)
+    
+    analysers = [
+        GpaAnalyser(students_full),
+        CountryAnalyser(students_sample)  
+    ]
+    
+    print("\nRunning all analysers:")
+    print("-" * 40)
+    
+    for a in analysers:
+        print(a)           
+        a.analyse()        
+        a.print_results()  
+        print()
 
 def main():
     fm = FileManager('students.csv')
-    
     if not fm.check_file():
         print('Stopping program.')
         return
     
     fm.create_output_folder()
+    
     dl = DataLoader('students.csv')
     dl.load()
     dl.preview()
-    analyser = DataAnalyser(dl.students)
-    analyser.analyse()
-    analyser.print_results()
+    
+    sample_students = dl.students[:100] 
+    
+    polymorphism_demo(dl.students, sample_students)
+    
 
+    analyser = GpaAnalyser(dl.students)
     saver = ResultSaver(analyser.result, 'output/result.json')
-    saver.save_json()
-
+    report = Report(analyser, saver)
+    report.generate()
+    
     print("\n" + "-" * 30)
     print("Lambda / Map / Filter")
     print("-" * 30)
@@ -171,5 +245,7 @@ def main():
     except (ValueError, KeyError):
         print("Warning: Could not filter study hours")
     print("-" * 30)
+
+
 if __name__ == "__main__":
     main()
